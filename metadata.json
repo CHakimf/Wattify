@@ -1,0 +1,5 @@
+{
+  "name": "Wattify",
+  "description": "Wattify: Real-time electricity monitoring and control dashboard for ESP32 using Firebase, featuring charts, relay control, and power analysis.",
+  "requestFramePermissions": ["notifications"]
+}

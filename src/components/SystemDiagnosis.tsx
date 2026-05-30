@@ -26,14 +26,14 @@ export function SystemDiagnosis({ data }: Props) {
   };
 
   const getRssiColor = (rssi: number | undefined) => {
-    if (rssi === undefined) return 'text-slate-400';
+    if (rssi === undefined || rssi === 0) return 'text-slate-400';
     if (rssi > -50) return 'text-green-500';
     if (rssi > -70) return 'text-yellow-500';
     return 'text-red-500';
   };
 
   const getRssiLabel = (rssi: number | undefined) => {
-    if (rssi === undefined) return 'N/A';
+    if (rssi === undefined || rssi === 0) return 'Terputus';
     if (rssi > -50) return 'Sangat Kuat';
     if (rssi > -70) return 'Cukup';
     return 'Lemah';
@@ -41,30 +41,41 @@ export function SystemDiagnosis({ data }: Props) {
 
   const diagnosisItems = [
     {
-      label: 'Sinyal WiFi (RSSI)',
-      value: data.wifi_rssi !== undefined ? `${data.wifi_rssi} dBm` : '-',
-      subValue: data.wifi_quality !== undefined ? `Kualitas: ${data.wifi_quality}%` : getRssiLabel(data.wifi_rssi),
+      label: 'Informasi Jaringan',
+      value: data.ssid ? data.ssid : 'Tidak Terhubung',
+      subValue: data.ip ? `IP: ${data.ip}` : 'Perangkat Offline',
+      icon: Wifi,
+      color: data.ssid ? 'text-blue-500' : 'text-slate-400'
+    },
+    {
+      label: 'Kekuatan Sinyal WiFi',
+      value: data.wifi_rssi && data.wifi_rssi !== 0 ? `${data.wifi_rssi} dBm` : 'Tidak Tersedia',
+      subValue: data.wifi_rssi && data.wifi_rssi !== 0 
+        ? (data.wifi_quality !== undefined ? `Kualitas: ${data.wifi_quality}% (${getRssiLabel(data.wifi_rssi)})` : getRssiLabel(data.wifi_rssi))
+        : 'Perangkat Offline',
       icon: Wifi,
       color: getRssiColor(data.wifi_rssi)
     },
     {
       label: 'Waktu Aktif (Uptime)',
-      value: data.uptime_str || formatUptime(data.uptime_s),
+      value: (data.uptime_s && data.uptime_s > 0) ? (data.uptime_str || formatUptime(data.uptime_s)) : 'Tidak Tersedia',
+      subValue: 'Durasi perangkat menyala',
       icon: Clock,
-      color: 'text-blue-500'
+      color: (!data.uptime_s || data.uptime_s === 0) ? 'text-slate-400' : 'text-blue-500'
     },
     {
-      label: 'Suhu CPU ESP32',
-      value: data.esp_temp !== undefined ? `${data.esp_temp.toFixed(1)} °C` : '-',
+      label: 'Suhu Internal CPU',
+      value: data.esp_temp && data.esp_temp !== 0 ? `${data.esp_temp.toFixed(1)} °C` : 'Tidak Tersedia',
+      subValue: data.esp_temp && data.esp_temp !== 0 ? (data.esp_temp > 60 ? 'Peringatan: Suhu Tinggi' : 'Status: Normal') : 'Perangkat Offline',
       icon: Thermometer,
-      color: data.esp_temp && data.esp_temp > 60 ? 'text-orange-500' : 'text-cyan-500'
+      color: data.esp_temp && data.esp_temp > 60 ? 'text-orange-500' : (!data.esp_temp || data.esp_temp === 0 ? 'text-slate-400' : 'text-cyan-500')
     },
     {
-      label: 'Memori Bebas (Heap)',
-      value: data.free_heap !== undefined ? `${(data.free_heap / 1024).toFixed(1)} KB` : '-',
-      subValue: data.heap_percent !== undefined ? `Tersisa: ${data.heap_percent}%` : undefined,
+      label: 'Sisa Memori (Free Heap)',
+      value: data.free_heap && data.free_heap !== 0 ? `${(data.free_heap / 1024).toFixed(1)} KB` : 'Tidak Tersedia',
+      subValue: data.free_heap && data.free_heap !== 0 && data.heap_percent !== undefined ? `Tersisa: ${data.heap_percent}% dari total` : 'Perangkat Offline',
       icon: HardDrive,
-      color: 'text-purple-500'
+      color: (!data.free_heap || data.free_heap === 0) ? 'text-slate-400' : 'text-purple-500'
     }
   ];
 
@@ -77,7 +88,7 @@ export function SystemDiagnosis({ data }: Props) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
           {diagnosisItems.map((item, idx) => (
             <div key={idx} className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
               <div className={`p-2 rounded-lg bg-white dark:bg-slate-900 shadow-sm ${item.color}`}>

@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { auth, googleProvider } from '../lib/firebase';
 import { signInWithEmailAndPassword, signInWithPopup, setPersistence, browserLocalPersistence, browserSessionPersistence } from 'firebase/auth';
-import { Zap, Mail, Lock, LogIn, AlertCircle, Chrome, CheckCircle2, ShieldCheck, BarChart3, Cpu, Smartphone, Globe, Play, Menu, X } from 'lucide-react';
+import { Zap, Mail, Lock, LogIn, AlertCircle, Chrome, CheckCircle2, ShieldCheck, BarChart3, Cpu, Smartphone, Globe, Menu, X, Sun, Moon } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { VideoTutorial } from './VideoTutorial';
+import { useTheme } from '../hooks/useTheme';
 
 export function LandingPage() {
   const [email, setEmail] = useState('');
@@ -12,6 +12,7 @@ export function LandingPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { isDarkMode, toggleTheme } = useTheme();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,7 +48,7 @@ export function LandingPage() {
       if (err.code === 'auth/unauthorized-domain') {
         setError('Domain ini belum diizinkan di Firebase Console. Silakan tambahkan domain aplikasi ke "Authorized Domains" di pengaturan Authentication Firebase.');
       } else {
-        setError('Gagal login dengan Google. Silakan coba lagi.');
+        setError('Gagal login dengan Google. Jika Anda login melalui aplikasi termux/Android, harap gunakan login via Email & Password.');
       }
     } finally {
       setLoading(false);
@@ -77,19 +78,33 @@ export function LandingPage() {
       {/* Navigation */}
       <nav className="fixed top-0 w-full z-50 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-100 dark:border-slate-900">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="p-1.5 bg-blue-600 rounded-lg text-white">
-              <Zap className="h-5 w-5" />
+          <div className="flex items-center gap-4">
+            <img 
+              src="https://upload.wikimedia.org/wikipedia/commons/0/08/Logo_UBB.png" 
+              alt="Logo UBB" 
+              className="h-8 object-contain" 
+              referrerPolicy="no-referrer" 
+            />
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-blue-600 rounded-lg text-white">
+                <Zap className="h-5 w-5" />
+              </div>
+              <span className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">Wattify</span>
             </div>
-            <span className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">Wattify</span>
           </div>
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600 dark:text-slate-400">
             <a href="#features" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Fitur</a>
-            <a href="#tutorials" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Tutorial</a>
             <a href="#about" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Tentang</a>
             <a href="#contact" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Kontak</a>
           </div>
           <div className="flex items-center gap-4">
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-full text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              aria-label="Toggle Dark Mode"
+            >
+              {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+            </button>
             <button 
               onClick={() => document.getElementById('login-section')?.scrollIntoView({ behavior: 'smooth' })}
               className="hidden sm:block px-5 py-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-full text-sm font-semibold hover:opacity-90 transition-opacity"
@@ -106,74 +121,81 @@ export function LandingPage() {
             </button>
           </div>
         </div>
-
-        {/* Mobile Menu Overlay */}
-        <AnimatePresence>
-          {isMobileMenuOpen && (
-            <>
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="fixed inset-0 bg-slate-950/20 backdrop-blur-sm z-40 md:hidden"
-              />
-              <motion.div
-                initial={{ x: '100%' }}
-                animate={{ x: 0 }}
-                exit={{ x: '100%' }}
-                transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                className="fixed top-0 right-0 bottom-0 w-[280px] bg-white dark:bg-slate-950 z-50 md:hidden border-l border-slate-100 dark:border-slate-900 p-6 shadow-2xl"
-              >
-                <div className="flex items-center justify-between mb-10">
-                  <div className="flex items-center gap-2">
-                    <div className="p-1.5 bg-blue-600 rounded-lg text-white">
-                      <Zap className="h-5 w-5" />
-                    </div>
-                    <span className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">Wattify</span>
-                  </div>
-                  <button
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-900 text-slate-500"
-                  >
-                    <X className="h-6 w-6" />
-                  </button>
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  {[
-                    { label: 'Fitur', href: '#features' },
-                    { label: 'Tutorial', href: '#tutorials' },
-                    { label: 'Tentang', href: '#about' },
-                    { label: 'Kontak', href: '#contact' },
-                  ].map((link) => (
-                    <a
-                      key={link.label}
-                      href={link.href}
-                      onClick={() => setIsMobileMenuOpen(false)}
-                      className="px-4 py-3 rounded-xl text-slate-600 dark:text-slate-400 font-medium hover:bg-slate-50 dark:hover:bg-slate-900 hover:text-blue-600 transition-all"
-                    >
-                      {link.label}
-                    </a>
-                  ))}
-                </div>
-
-                <div className="absolute bottom-6 left-6 right-6">
-                  <button
-                    onClick={() => {
-                      setIsMobileMenuOpen(false);
-                      document.getElementById('login-section')?.scrollIntoView({ behavior: 'smooth' });
-                    }}
-                    className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold shadow-lg shadow-blue-500/20 active:scale-95 transition-all"
-                  >
-                    Mulai Sekarang
-                  </button>
-                </div>
-              </motion.div>
-            </>
-          )}
-        </AnimatePresence>
       </nav>
+
+      {/* Mobile Menu Overlay */}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <div className="md:hidden">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="fixed inset-0 bg-slate-950/20 backdrop-blur-sm z-40"
+            />
+            <motion.div
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="fixed top-0 right-0 bottom-0 w-[280px] bg-white dark:bg-slate-950 z-50 border-l border-slate-100 dark:border-slate-900 p-6 shadow-2xl flex flex-col"
+            >
+              <div className="flex items-center justify-between mb-10 shrink-0">
+                <div className="flex items-center gap-3">
+                  <img 
+                    src="https://upload.wikimedia.org/wikipedia/commons/0/08/Logo_UBB.png" 
+                    alt="Logo UBB" 
+                    className="h-7 object-contain" 
+                    referrerPolicy="no-referrer" 
+                  />
+                  <div className="flex items-center gap-1.5">
+                    <div className="p-1 bg-blue-600 rounded-md text-white">
+                      <Zap className="h-4 w-4" />
+                    </div>
+                    <span className="text-lg font-bold text-slate-900 dark:text-white tracking-tight">Wattify</span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-900 text-slate-500"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+
+              <div className="flex flex-col gap-2 flex-grow overflow-y-auto pb-6">
+                {[
+                  { label: 'Fitur', href: '#features' },
+                  { label: 'Tentang', href: '#about' },
+                  { label: 'Kontak', href: '#contact' },
+                ].map((link) => (
+                  <a
+                    key={link.label}
+                    href={link.href}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="px-4 py-3 rounded-xl text-slate-600 dark:text-slate-400 font-medium hover:bg-slate-50 dark:hover:bg-slate-900 hover:text-blue-600 transition-all"
+                  >
+                    {link.label}
+                  </a>
+                ))}
+              </div>
+
+              <div className="shrink-0 pt-4">
+                <button
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    document.getElementById('login-section')?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold shadow-lg shadow-blue-500/20 active:scale-95 transition-all"
+                >
+                  Mulai Sekarang
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Hero Section with Split Layout */}
       <section className="relative pt-32 pb-20 lg:pt-48 lg:pb-32 overflow-hidden">
@@ -384,24 +406,6 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* Video Tutorial Section */}
-      <section id="tutorials" className="py-24 bg-white dark:bg-slate-950">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 text-red-600 dark:text-red-400 text-xs font-bold uppercase tracking-wider mb-4">
-              <Play className="h-3.5 w-3.5" />
-              Video Tutorial
-            </div>
-            <h2 className="text-4xl font-extrabold text-slate-900 dark:text-white mb-4">Pelajari Cara Kerjanya</h2>
-            <p className="text-slate-500 dark:text-slate-400 max-w-2xl mx-auto">
-              Tonton video tutorial kami untuk memulai perjalanan monitoring energi Anda dengan Wattify.
-            </p>
-          </div>
-
-          <VideoTutorial />
-        </div>
-      </section>
-
       {/* Stats Section */}
       <section className="py-20 border-y border-slate-100 dark:border-slate-900">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -445,8 +449,8 @@ export function LandingPage() {
               className="relative aspect-video rounded-3xl overflow-hidden shadow-2xl"
             >
               <img 
-                src="https://images.unsplash.com/photo-1558441719-ffb4d4520a67?auto=format&fit=crop&q=80&w=1000" 
-                alt="Smart Home Energy" 
+                src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80&w=1000" 
+                alt="Smart Energy Data Analytics" 
                 className="w-full h-full object-cover"
                 referrerPolicy="no-referrer"
               />

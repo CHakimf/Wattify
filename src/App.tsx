@@ -6,9 +6,11 @@
 import { Dashboard } from './components/Dashboard';
 import { LandingPage } from './components/LandingPage';
 import { useFirebaseData } from './hooks/useFirebaseData';
+import { useTheme } from './hooks/useTheme';
 
 export default function App() {
   const { user, isLoading } = useFirebaseData();
+  useTheme();
 
   if (isLoading) {
     return (

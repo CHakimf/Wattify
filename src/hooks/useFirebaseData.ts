@@ -1,8 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
-import { ref, onValue, set, get, serverTimestamp } from 'firebase/database';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { ref, onValue, set, get, serverTimestamp, Database } from 'firebase/database';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
-import { db, auth } from '../lib/firebase';
-import { MonitoringData, RelayControl, Settings } from '../types';
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getDatabase } from 'firebase/database';
+import { db as defaultDb, auth } from '../lib/firebase';
+import { MonitoringData, RelayControl, Settings, WifiNetwork } from '../types';
 
 const defaultSettings: Partial<Settings> = {
   threshold: 2200,
@@ -32,6 +34,7 @@ export function useFirebaseData() {
   });
   const [relays, setRelays] = useState<RelayControl>({});
   const [settings, setSettings] = useState<Settings>(defaultSettings as Settings);
+  const [availableNetworks, setAvailableNetworks] = useState<WifiNetwork[]>([]);
   const [history, setHistory] = useState<MonitoringData[]>(() => {
     const saved = localStorage.getItem('wattify_history');
     if (saved) {
@@ -49,7 +52,30 @@ export function useFirebaseData() {
   const [isServerConnected, setIsServerConnected] = useState(false);
   const [isDeviceOnline, setIsDeviceOnline] = useState(false);
   const lastUpdateRef = useRef<number>(0);
+  const isOfflineRef = useRef<boolean>(true);
   const systemDataRef = useRef<Partial<MonitoringData>>({});
+
+  const [isAutoSyncEnabled, setIsAutoSyncEnabled] = useState(() => {
+    return localStorage.getItem('wattify_auto_sync') !== 'false';
+  });
+
+  const toggleAutoSync = () => {
+    setIsAutoSyncEnabled(prev => {
+      const next = !prev;
+      localStorage.setItem('wattify_auto_sync', String(next));
+      return next;
+    });
+  };
+
+  // Active database instance and user base path
+  const [activeDb, setActiveDb] = useState<Database>(defaultDb);
+  const [basePath, setBasePath] = useState<string>('');
+  
+  // Custom Firebase config trigger
+  const [configHash, setConfigHash] = useState(() => Date.now());
+
+  // Function to refresh config when user updates settings
+  const refreshConfig = () => setConfigHash(Date.now());
 
   useEffect(() => {
     const unsubAuth = onAuthStateChanged(auth, (user) => {
@@ -65,12 +91,45 @@ export function useFirebaseData() {
   useEffect(() => {
     if (!user) return;
 
-    const monitoringRef = ref(db, 'monitoring');
-    const controlRef = ref(db, 'control');
-    const settingsRef = ref(db, 'settings');
-    const systemRef = ref(db, 'system');
-    const connectedRef = ref(db, '.info/connected');
-    const syncRef = ref(db, 'system/lastSync');
+    // Check for custom firebase connection
+    const customApiKey = localStorage.getItem('wattify_firebase_api_key');
+    const customDbUrl = localStorage.getItem('wattify_firebase_db_url');
+    let currentDb = defaultDb;
+    let currentBasePath = `users/${user.uid}`; // Device scoping per Google Account
+
+    if (customApiKey && customDbUrl) {
+      try {
+        const apps = getApps();
+        const customAppName = `CustomESP32_${user.uid}`;
+        let customApp = apps.find(app => app.name === customAppName);
+        if (!customApp) {
+          customApp = initializeApp({
+            apiKey: customApiKey,
+            databaseURL: customDbUrl
+          }, customAppName);
+        }
+        currentDb = getDatabase(customApp);
+        // If they use their own DB, they might be writing to the root.
+        // We'll use the root for backwards compatibility and ease of custom ESP32 setup.
+        currentBasePath = '';
+      } catch (e) {
+        console.error("Failed to initialize custom Firebase app:", e);
+      }
+    }
+
+    setActiveDb(currentDb);
+    setBasePath(currentBasePath);
+
+    const getPath = (path: string) => currentBasePath ? `${currentBasePath}/${path}` : path;
+    const getRootPath = (path: string) => path; // Some things like .info/connected are always root
+
+    const monitoringRef = ref(currentDb, getPath('monitoring'));
+    const controlRef = ref(currentDb, getPath('control'));
+    const settingsRef = ref(currentDb, getPath('settings'));
+    const systemRef = ref(currentDb, getPath('system'));
+    const connectedRef = ref(currentDb, getRootPath('.info/connected'));
+    const syncRef = ref(currentDb, getPath('system/lastSync'));
+    const networksRef = ref(currentDb, getPath('system/available_networks'));
 
     let monitoringLoaded = false;
     let controlLoaded = false;
@@ -91,38 +150,94 @@ export function useFirebaseData() {
       setLastSync(snap.val());
     });
 
-    const unsubSystem = onValue(systemRef, (snapshot) => {
+    const unsubNetworks = onValue(networksRef, (snapshot) => {
       const data = snapshot.val();
-      systemLoaded = true;
-      if (data) {
-        const now = Date.now();
-        lastUpdateRef.current = now;
-        setIsDeviceOnline(true);
-        systemDataRef.current = data;
-        setMonitoring(prev => ({ ...prev, ...data }));
+      if (data && Array.isArray(data)) {
+        // Handle both string array (from prompt) and object array
+        const mapped = data.map(net => {
+          if (typeof net === 'string') {
+            return { ssid: net };
+          }
+          return net;
+        }).filter(net => net && net.ssid);
+        setAvailableNetworks(mapped);
+      } else {
+        setAvailableNetworks([]);
       }
-      checkLoading();
     });
 
-    const unsubMonitoring = onValue(monitoringRef, (snapshot) => {
-      const data = snapshot.val();
-      monitoringLoaded = true;
-      if (data) {
-        const now = Date.now();
-        lastUpdateRef.current = now;
-        setIsDeviceOnline(true);
-        
-        const newData = { ...data, ...systemDataRef.current, timestamp: now };
-        setMonitoring(newData);
-        setHistory(prev => {
-          const newHistory = [...prev, newData];
-          // Keep last 2000 data points for chart (approx 2.5 hours if 1 point / 5 sec)
-          if (newHistory.length > 2000) return newHistory.slice(newHistory.length - 2000);
-          return newHistory;
-        });
-      }
+    let isInitialSystemLoad = true;
+    let unsubSystem = () => {};
+    if (isAutoSyncEnabled) {
+      unsubSystem = onValue(systemRef, (snapshot) => {
+        const data = snapshot.val();
+        systemLoaded = true;
+        if (data) {
+          if (isInitialSystemLoad) {
+            isInitialSystemLoad = false;
+          } else {
+            const now = Date.now();
+            lastUpdateRef.current = now;
+            isOfflineRef.current = false;
+            setIsDeviceOnline(true);
+          }
+          systemDataRef.current = data;
+          setMonitoring(prev => ({ ...prev, ...data }));
+        }
+        checkLoading();
+      });
+    } else {
+      systemLoaded = true;
       checkLoading();
-    });
+    }
+
+    let isInitialMonitoringLoad = true;
+    let unsubMonitoring = () => {};
+    if (isAutoSyncEnabled) {
+      unsubMonitoring = onValue(monitoringRef, (snapshot) => {
+        const data = snapshot.val();
+        monitoringLoaded = true;
+        if (data) {
+          let isActuallyOnline = false;
+          const now = Date.now();
+          if (isInitialMonitoringLoad) {
+            isInitialMonitoringLoad = false;
+          } else {
+            isActuallyOnline = true;
+            lastUpdateRef.current = now;
+            isOfflineRef.current = false;
+            setIsDeviceOnline(true);
+          }
+          
+          const newData = { ...data, ...systemDataRef.current, timestamp: now };
+          
+          if (!isActuallyOnline) {
+            newData.voltage = 0;
+            newData.current = 0;
+            newData.power = 0;
+            newData.frequency = 0;
+            newData.pf = 0;
+            newData.wifi_rssi = 0;
+            newData.esp_temp = 0;
+            newData.free_heap = 0;
+            newData.heap_percent = 0;
+            newData.uptime_s = 0;
+          }
+          
+          setMonitoring(newData);
+          setHistory(prev => {
+            const newHistory = [...prev, newData];
+            // Keep last 2000 data points for chart (approx 2.5 hours if 1 point / 5 sec)
+            if (newHistory.length > 2000) return newHistory.slice(newHistory.length - 2000);
+            return newHistory;
+          });
+        }
+        checkLoading();
+      });
+    } else {
+      monitoringLoaded = true;
+      checkLoading();
+    }
 
     const unsubControl = onValue(controlRef, (snapshot) => {
       const data = snapshot.val();
@@ -142,7 +257,8 @@ export function useFirebaseData() {
         setSettings({
           ...defaultSettings,
           ...data,
-          relayNames: data.relayNames || {}
+          relayNames: data.relayNames || {},
+          relaySchedules: data.relaySchedules || {}
         });
       }
       checkLoading();
@@ -155,24 +271,44 @@ export function useFirebaseData() {
       }
     });
 
-    // Check device online status every 5 seconds
-    // If no data received for 15 seconds, consider device offline
+    // Check device online status every 1 second
+    // If no data received for 7 seconds, consider device offline
     const interval = setInterval(() => {
-      if (lastUpdateRef.current > 0 && Date.now() - lastUpdateRef.current > 15000) {
-        setIsDeviceOnline(false);
+      if (isAutoSyncEnabled && lastUpdateRef.current > 0 && Date.now() - lastUpdateRef.current > 7000) {
+        if (!isOfflineRef.current) {
+          setIsDeviceOnline(false);
+          isOfflineRef.current = true;
+          setMonitoring(prev => ({
+            ...prev,
+            voltage: 0,
+            current: 0,
+            power: 0,
+            frequency: 0,
+            pf: 0,
+            wifi_rssi: 0,
+            esp_temp: 0,
+            free_heap: 0,
+            heap_percent: 0,
+            uptime_s: 0
+          }));
+        }
       }
-    }, 5000);
+    }, 1000);
 
     return () => {
       unsubConnected();
       unsubSync();
+      unsubNetworks();
       unsubSystem();
       unsubMonitoring();
       unsubControl();
       unsubSettings();
       clearInterval(interval);
     };
-  }, [user]);
+  }, [user, configHash]);
+
+  // Helper for generating dynamic paths
+  const getPath = (path: string) => basePath ? `${basePath}/${path}` : path;
 
   // Save history to localStorage whenever it changes
   useEffect(() => {
@@ -186,27 +322,48 @@ export function useFirebaseData() {
       if (activeRelays.length > 0) {
         const offRelays = { ...relays };
         Object.keys(offRelays).forEach(key => offRelays[key] = false);
-        set(ref(db, 'control'), offRelays);
+        set(ref(activeDb, getPath('control')), offRelays);
       }
     }
-  }, [monitoring.power, settings.threshold, settings.autoCutoff, relays]);
+  }, [monitoring.power, settings.threshold, settings.autoCutoff, relays, activeDb, basePath]);
 
   const updateRelay = (relayKey: string, value: boolean) => {
-    set(ref(db, `control/${relayKey}`), value);
+    set(ref(activeDb, getPath(`control/${relayKey}`)), value);
   };
 
   const updateSettings = (newSettings: Partial<Settings>) => {
     const updatedSettings = { ...settings, ...newSettings };
-    set(ref(db, 'settings'), updatedSettings);
+    set(ref(activeDb, getPath('settings')), updatedSettings);
   };
 
   const syncTime = () => {
-    set(ref(db, 'system/sync'), serverTimestamp());
-    set(ref(db, 'system/lastSync'), Date.now());
+    set(ref(activeDb, getPath('system/sync')), serverTimestamp());
+    set(ref(activeDb, getPath('system/lastSync')), Date.now());
   };
 
   const rebootDevice = () => {
-    set(ref(db, 'system/reboot'), serverTimestamp());
+    set(ref(activeDb, getPath('system/reboot')), serverTimestamp());
+  };
+
+  const factoryResetDevice = () => {
+    set(ref(activeDb, getPath('system/factory_reset')), serverTimestamp());
+  };
+
+  const updateWifiConfig = (ssid: string, password: string) => {
+    set(ref(activeDb, getPath('system/wifi_config')), {
+      ssid,
+      password,
+      timestamp: serverTimestamp()
+    });
+  };
+
+  const resetAllData = () => {
+    // 1. Reset frontend history
+    setHistory([]);
+    localStorage.removeItem('wattify_history');
+    
+    // 2. Instruct ESP32 to reset energy counter
+    set(ref(activeDb, getPath('system/reset_energy')), serverTimestamp());
   };
 
   const clearHistory = () => {
@@ -224,6 +381,7 @@ export function useFirebaseData() {
     relays, 
     settings, 
     history, 
+    availableNetworks,
     isServerConnected,
     isDeviceOnline,
     isLoading,
@@ -232,7 +390,13 @@ export function useFirebaseData() {
     updateSettings,
     syncTime,
     rebootDevice,
+    factoryResetDevice,
+    updateWifiConfig,
     clearHistory,
-    logout
+    resetAllData,
+    logout,
+    refreshConfig,
+    isAutoSyncEnabled,
+    toggleAutoSync
   };
 }

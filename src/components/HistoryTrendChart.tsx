@@ -10,7 +10,7 @@ interface Props {
   history: MonitoringData[];
 }
 
-type GroupBy = 'day' | 'week' | 'month';
+type GroupBy = 'day' | 'week' | 'month' | 'year';
 
 export function HistoryTrendChart({ history }: Props) {
   const [groupBy, setGroupBy] = useState<GroupBy>('day');
@@ -23,6 +23,8 @@ export function HistoryTrendChart({ history }: Props) {
       maxPower: number;
       minPower: number;
       sumPower: number;
+      maxEnergy: number;
+      minEnergy: number;
       count: number;
     }>();
 
@@ -45,6 +47,10 @@ export function HistoryTrendChart({ history }: Props) {
         const start = startOfMonth(date);
         groupKey = format(start, 'yyyy-MM');
         groupTimestamp = start.getTime();
+      } else if (groupBy === 'year') {
+        const start = new Date(date.getFullYear(), 0, 1);
+        groupKey = format(start, 'yyyy');
+        groupTimestamp = start.getTime();
       }
 
       const existing = grouped.get(groupKey);
@@ -52,6 +58,8 @@ export function HistoryTrendChart({ history }: Props) {
         existing.maxPower = Math.max(existing.maxPower, d.power);
         existing.minPower = Math.min(existing.minPower, d.power);
         existing.sumPower += d.power;
+        existing.maxEnergy = Math.max(existing.maxEnergy, d.energy || 0);
+        existing.minEnergy = Math.min(existing.minEnergy, d.energy || 0);
         existing.count += 1;
       } else {
         grouped.set(groupKey, {
@@ -59,6 +67,8 @@ export function HistoryTrendChart({ history }: Props) {
           maxPower: d.power,
           minPower: d.power,
           sumPower: d.power,
+          maxEnergy: d.energy || 0,
+          minEnergy: d.energy || 0,
           count: 1
         });
       }
@@ -71,11 +81,14 @@ export function HistoryTrendChart({ history }: Props) {
         avgPower: Number((item.sumPower / item.count).toFixed(1)),
         maxPower: Number(item.maxPower.toFixed(1)),
         minPower: Number(item.minPower.toFixed(1)),
+        energyConsumed: Number((item.maxEnergy - item.minEnergy).toFixed(2)),
         label: groupBy === 'day' 
           ? format(new Date(item.timestamp), 'dd MMM', { locale: id })
           : groupBy === 'week'
             ? `Minggu ${format(new Date(item.timestamp), 'dd MMM', { locale: id })}`
-            : format(new Date(item.timestamp), 'MMM yyyy', { locale: id })
+            : groupBy === 'month'
+              ? format(new Date(item.timestamp), 'MMM yyyy', { locale: id })
+              : format(new Date(item.timestamp), 'yyyy', { locale: id })
       }));
   }, [history, groupBy]);
 
@@ -99,6 +112,7 @@ export function HistoryTrendChart({ history }: Props) {
             <option value="day">Harian</option>
             <option value="week">Mingguan</option>
             <option value="month">Bulanan</option>
+            <option value="year">Tahunan</option>
           </select>
         </div>
       </CardHeader>
@@ -132,12 +146,16 @@ export function HistoryTrendChart({ history }: Props) {
                     boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
                     backgroundColor: 'rgba(255, 255, 255, 0.95)'
                   }}
-                  formatter={(value: number) => [`${value} W`, '']}
+                  formatter={(value: number, name: string) => {
+                    if (name === 'Konsumsi Energi') return [`${value} kWh`, name];
+                    return [`${value} W`, name];
+                  }}
                 />
                 <Legend wrapperStyle={{ paddingTop: '20px' }} />
                 <Bar dataKey="maxPower" name="Daya Maksimum" fill="#ef4444" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="avgPower" name="Daya Rata-rata" fill="#3b82f6" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="minPower" name="Daya Minimum" fill="#10b981" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="energyConsumed" name="Konsumsi Energi" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>

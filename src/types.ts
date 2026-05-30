@@ -1,3 +1,9 @@
+export interface WifiNetwork {
+  ssid: string;
+  rssi?: number;
+  open?: boolean;
+}
+
 export interface MonitoringData {
   voltage: number;
   current: number;
@@ -14,6 +20,8 @@ export interface MonitoringData {
   heap_percent?: number;
   firmware_version?: string;
   ip_address?: string;
+  ip?: string;
+  ssid?: string;
   timestamp?: number;
 }
 
@@ -34,4 +42,12 @@ export interface Settings {
     endTime: string;
     ecoThreshold: number;
   };
+  relaySchedules?: {
+    [key: string]: {
+      enabled: boolean;
+      onTime: string;
+      offTime: string;
+    };
+  };
+  cardOrder?: string[];
 }

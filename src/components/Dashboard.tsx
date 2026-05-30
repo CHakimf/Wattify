@@ -3,6 +3,7 @@ import { useFirebaseData } from '../hooks/useFirebaseData';
 import { MonitoringCards } from './MonitoringCards';
 import { RelayControl } from './RelayControl';
 import { PowerChart } from './PowerChart';
+import { PowerGauge } from './PowerGauge';
 import { SettingsPanel } from './SettingsPanel';
 import { DataHistory } from './DataHistory';
 import { PowerAnalysis } from './PowerAnalysis';
@@ -11,13 +12,34 @@ import { DevicesPanel } from './DevicesPanel';
 import { LoadCurveChart } from './LoadCurveChart';
 import { HistoryTrendChart } from './HistoryTrendChart';
 import { SystemDiagnosis } from './SystemDiagnosis';
-import { VideoTutorial } from './VideoTutorial';
-import { Moon, Sun, Zap, Wifi, WifiOff, Server, Activity, Sliders, Cpu, Clock, LogIn, LineChart as LineChartIcon, AreaChart as AreaChartIcon, BarChart as BarChartIcon, CandlestickChart as CandlestickChartIcon, Database, Info, Play, ChevronDown } from 'lucide-react';
+import { useTheme } from '../hooks/useTheme';
+import { Moon, Sun, Zap, Wifi, WifiOff, Server, Activity, Sliders, Cpu, Clock, LogIn, LineChart as LineChartIcon, AreaChart as AreaChartIcon, BarChart as BarChartIcon, CandlestickChart as CandlestickChartIcon, Database, Info, BookOpen, ChevronDown, Terminal } from 'lucide-react';
+import { OnboardingModal } from './OnboardingModal';
+import { ProfileSettingsModal } from './ProfileSettingsModal';
+import { FirmwarePromptModal } from './FirmwarePromptModal';
 import { motion, AnimatePresence } from 'motion/react';
 
+const showNativeNotification = async (title: string, options: NotificationOptions) => {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  
+  if ('serviceWorker' in navigator) {
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      if (registration) {
+        await registration.showNotification(title, options);
+        return;
+      }
+    } catch (e) {
+      console.error('Service Worker notification failed, falling back', e);
+    }
+  }
+  
+  new Notification(title, options);
+};
+
 export function Dashboard() {
-  const { user, monitoring, relays, settings, history, isServerConnected, isDeviceOnline, isLoading, lastSync, updateRelay, updateSettings, syncTime, rebootDevice, clearHistory, logout } = useFirebaseData();
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const { user, monitoring, relays, settings, history, availableNetworks, isServerConnected, isDeviceOnline, isLoading, lastSync, updateRelay, updateSettings, syncTime, rebootDevice, factoryResetDevice, updateWifiConfig, clearHistory, resetAllData, logout, refreshConfig, isAutoSyncEnabled, toggleAutoSync } = useFirebaseData();
+  const { isDarkMode, toggleTheme } = useTheme();
   const [notified, setNotified] = useState(false);
   const [activeTab, setActiveTab] = useState<'data' | 'control' | 'devices' | 'manage' | 'help'>('data');
   const [prevTab, setPrevTab] = useState<'data' | 'control' | 'devices' | 'manage' | 'help'>('data');
@@ -25,6 +47,19 @@ export function Dashboard() {
   const [timeframe, setTimeframe] = useState<number>(15); // Default 15 minutes
   const [chartMode, setChartMode] = useState<'line' | 'area' | 'bar' | 'candlestick' | 'load_curve'>('line');
   const [showUserMenu, setShowUserMenu] = useState(false);
+  
+  // Modals state
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showFirmwarePrompt, setShowFirmwarePrompt] = useState(false);
+
+  useEffect(() => {
+    // Check if tutorial is completed
+    const isCompleted = localStorage.getItem('wattify_tutorial_completed');
+    if (isCompleted !== 'true' && !isLoading) {
+      setShowOnboarding(true);
+    }
+  }, [isLoading]);
 
   const tabOrder = ['data', 'manage', 'control', 'devices', 'help'];
   const direction = tabOrder.indexOf(activeTab) > tabOrder.indexOf(prevTab) ? 1 : -1;
@@ -49,15 +84,6 @@ export function Dashboard() {
     return () => clearInterval(timer);
   }, []);
 
-  // Handle Dark Mode
-  useEffect(() => {
-    if (isDarkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [isDarkMode]);
-
   // Request Notification Permission
   useEffect(() => {
     if ('Notification' in window && Notification.permission === 'default') {
@@ -67,6 +93,38 @@ export function Dashboard() {
 
   // Handle Overload & Warning Notification
   const [warningNotified, setWarningNotified] = useState(false);
+  const [offlineNotified, setOfflineNotified] = useState(false);
+
+  // Handle Offline Notification
+  useEffect(() => {
+    // Avoid triggering on initial load
+    if (isLoading) return;
+
+    if (!isDeviceOnline) {
+      if (!offlineNotified) {
+        if ('Notification' in window && Notification.permission === 'granted') {
+          showNativeNotification('Perangkat Offline!', {
+            body: 'Koneksi ke perangkat ESP32 terputus. Pastikan perangkat menyala dan terhubung dengan WiFi.',
+            icon: '/favicon.ico'
+          });
+        } else if (!('Notification' in window) || Notification.permission !== 'granted') {
+          alert('Perangkat Offline! Koneksi ke perangkat ESP32 terputus.');
+        }
+        setOfflineNotified(true);
+      }
+    } else {
+      if (offlineNotified) {
+        if ('Notification' in window && Notification.permission === 'granted') {
+          showNativeNotification('Perangkat Online', {
+            body: 'Koneksi ke perangkat ESP32 kembali terhubung.',
+            icon: '/favicon.ico'
+          });
+        }
+        setOfflineNotified(false);
+      }
+    }
+  }, [isDeviceOnline, isLoading, offlineNotified]);
+
   useEffect(() => {
     const threshold = settings.threshold;
     const currentPower = monitoring.power;
@@ -74,7 +132,7 @@ export function Dashboard() {
 
     if (currentPower > threshold) {
       if (!notified && 'Notification' in window && Notification.permission === 'granted') {
-        new Notification('Peringatan Overload!', {
+        showNativeNotification('Peringatan Overload!', {
           body: `Daya saat ini (${currentPower}W) melebihi batas (${threshold}W)`,
           icon: '/favicon.ico'
         });
@@ -82,7 +140,7 @@ export function Dashboard() {
       }
     } else if (currentPower > warningThreshold) {
       if (!warningNotified && 'Notification' in window && Notification.permission === 'granted') {
-        new Notification('Peringatan: Mendekati Batas!', {
+        showNativeNotification('Peringatan: Mendekati Batas!', {
           body: `Daya saat ini (${currentPower}W) sudah mencapai 85% dari batas (${threshold}W)`,
           icon: '/favicon.ico'
         });
@@ -100,7 +158,7 @@ export function Dashboard() {
     { id: 'manage', label: 'Kelola', icon: Database },
     { id: 'control', label: 'Kontrol', icon: Sliders },
     { id: 'devices', label: 'Perangkat', icon: Cpu },
-    { id: 'help', label: 'Tutorial', icon: Play },
+    { id: 'help', label: 'Dokumentasi', icon: BookOpen },
   ];
 
   const timeframes = [
@@ -186,6 +244,14 @@ export function Dashboard() {
               <span>{isDeviceOnline ? 'ESP32 Online' : 'ESP32 Offline'}</span>
             </div>
 
+            {/* Sync Status */}
+            {!isAutoSyncEnabled && (
+              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium border bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800/50" title="Sinkronisasi Data Dijeda">
+                <Database className="h-4 w-4 opacity-50" />
+                <span>Sync Dijeda</span>
+              </div>
+            )}
+
             {/* Clock */}
             <div className="hidden md:flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-mono font-medium border bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-800/50 dark:text-slate-300 dark:border-slate-700/50">
               <Clock className="h-4 w-4" />
@@ -195,7 +261,7 @@ export function Dashboard() {
             <div className="h-6 w-px bg-slate-200 dark:bg-slate-700 mx-1"></div>
 
             <button
-              onClick={() => setIsDarkMode(!isDarkMode)}
+              onClick={toggleTheme}
               className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               aria-label="Toggle Dark Mode"
             >
@@ -236,7 +302,22 @@ export function Dashboard() {
                         <p className="text-[10px] uppercase tracking-wider font-bold text-slate-400 dark:text-slate-500 mb-1">Masuk sebagai</p>
                         <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{user?.email}</p>
                       </div>
-                      <div className="p-1">
+                      <div className="p-1 space-y-1">
+                        <button
+                          onClick={() => {
+                            setShowUserMenu(false);
+                            setShowProfileModal(true);
+                          }}
+                          className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800/50 rounded-xl transition-colors"
+                        >
+                          <div className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 transition-colors">
+                            <Info className="h-4 w-4" />
+                          </div>
+                          Profil & Pengaturan
+                        </button>
+                        
+                        <div className="h-px bg-slate-100 dark:bg-slate-800 my-1 mx-2" />
+
                         <button
                           onClick={logout}
                           className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors group"
@@ -257,20 +338,20 @@ export function Dashboard() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 overflow-x-hidden">
-        <AnimatePresence mode="wait" custom={direction}>
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 overflow-x-hidden relative">
+        <AnimatePresence mode="wait" custom={direction} initial={false}>
           <motion.div
             key={activeTab}
             custom={direction}
-            initial={{ opacity: 0, x: direction * 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: direction * -20 }}
-            transition={{ duration: 0.3, ease: "easeInOut" }}
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -15 }}
+            transition={{ duration: 0.35, ease: [0.25, 0.1, 0.25, 1] }}
           >
             {activeTab === 'data' && (
               <div className="space-y-6">
-                <MonitoringCards data={monitoring} settings={settings} />
-                <SystemDiagnosis data={monitoring} />
+                <PowerGauge monitoring={monitoring} settings={settings} />
+                <MonitoringCards data={monitoring} settings={settings} onUpdateOrder={(order) => updateSettings({ cardOrder: order })} />
                 
                 <div className="flex justify-end items-center gap-3 mb-4">
                   <div className="relative">
@@ -341,7 +422,7 @@ export function Dashboard() {
               <div className="space-y-6">
                 <HistoryTrendChart history={filteredHistory} />
                 <LoadCurveChart history={filteredHistory} />
-                <DataHistory history={filteredHistory} onClearHistory={clearHistory} />
+                <DataHistory history={filteredHistory} onClearHistory={clearHistory} onResetData={resetAllData} />
                 <UsageStatistics history={filteredHistory} settings={settings} />
               </div>
             )}
@@ -359,16 +440,20 @@ export function Dashboard() {
             )}
 
             {activeTab === 'devices' && (
-              <div className="max-w-4xl mx-auto space-y-6">
+              <div className="max-w-7xl mx-auto space-y-6">
+                <SystemDiagnosis data={monitoring} />
                 <DevicesPanel 
                   settings={settings} 
                   relays={relays} 
                   monitoring={monitoring}
+                  availableNetworks={availableNetworks}
                   isDeviceOnline={isDeviceOnline} 
                   lastSync={lastSync}
                   onSave={updateSettings} 
                   onSyncTime={syncTime}
                   onReboot={rebootDevice}
+                  onFactoryReset={factoryResetDevice}
+                  onUpdateWifi={updateWifiConfig}
                 />
               </div>
             )}
@@ -376,10 +461,99 @@ export function Dashboard() {
             {activeTab === 'help' && (
               <div className="max-w-5xl mx-auto space-y-6">
                 <div className="mb-8">
-                  <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Pusat Bantuan & Tutorial</h2>
-                  <p className="text-slate-500 dark:text-slate-400">Pelajari cara memaksimalkan penggunaan Wattify untuk efisiensi energi Anda.</p>
+                  <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Dokumentasi Fitur</h2>
+                  <p className="text-slate-500 dark:text-slate-400">Jelajahi panduan penggunaan fitur-fitur pintar Wattify.</p>
                 </div>
-                <VideoTutorial />
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {/* Card 1 */}
+                  <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border dark:border-slate-800 shadow-sm">
+                    <div className="h-10 w-10 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg flex items-center justify-center mb-4">
+                      <Activity className="h-5 w-5" />
+                    </div>
+                    <h3 className="font-semibold text-slate-900 dark:text-white mb-2">Monitoring Real-time</h3>
+                    <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                      Pantau secara langsung variabel kelistrikan dari ESP32 Anda. Sistem menampilkan <strong>Tegangan (V), Arus (A), Daya (W), Energi (kWh), Frekuensi (HZ)</strong> dan Power Factor. Data diperbarui setiap beberapa detik secara live.
+                    </p>
+                  </div>
+                  
+                  {/* Card 2 */}
+                  <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border dark:border-slate-800 shadow-sm">
+                    <div className="h-10 w-10 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-lg flex items-center justify-center mb-4">
+                      <LineChartIcon className="h-5 w-5" />
+                    </div>
+                    <h3 className="font-semibold text-slate-900 dark:text-white mb-2">Analisis & Riwayat (Grafik)</h3>
+                    <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                      Lakukan analisis data mingguan atau sesi berjalan dengan mudah melalui grafik garis (Line), area, dan grafik Load Curve khusus. Anda juga bisa mengekspor laporan data sensor ke dalam format Excel / CSV.
+                    </p>
+                  </div>
+
+                  {/* Card 3 */}
+                  <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border dark:border-slate-800 shadow-sm">
+                    <div className="h-10 w-10 bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-lg flex items-center justify-center mb-4">
+                      <Cpu className="h-5 w-5" />
+                    </div>
+                    <h3 className="font-semibold text-slate-900 dark:text-white mb-2">Manajemen Perangkat</h3>
+                    <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                      Kelola kesehatan (Diagnosis) ESP32 langsung dari Web. Anda dapat melihat <strong>Kualitas Sinyal WiFi, RAM (Heap), Temperatur CPU</strong>, bahkan mengubah jaringan WiFi dan melakukan reboot (restart) MCU dari jarak jauh.
+                    </p>
+                  </div>
+
+                  {/* Card 4 */}
+                  <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border dark:border-slate-800 shadow-sm md:col-span-2 lg:col-span-3 hover:border-blue-500/50 transition-colors">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                      <div>
+                        <div className="h-10 w-10 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg flex items-center justify-center mb-4">
+                          <Terminal className="h-5 w-5" />
+                        </div>
+                        <h3 className="font-semibold text-slate-900 dark:text-white mb-2">Kode Firmware ESP32</h3>
+                        <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed max-w-3xl">
+                          Ingin merakit dan memprogram Hardware sendiri? Anda bisa menggunakan Prompt khusus yang kami siapkan. Cukup salin Prompt ini ke AI Assistant (seperti Gemini atau ChatGPT) dan AI akan membuatkan program Firebase C++ ESP32 utuh untuk Anda.
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setShowFirmwarePrompt(true)}
+                        className="whitespace-nowrap px-6 py-3 bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-white dark:text-slate-900 text-white rounded-xl font-bold shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2"
+                      >
+                        <Terminal className="w-4 h-4" />
+                        Lihat Prompt Kode
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Card 4 */}
+                  <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border dark:border-slate-800 shadow-sm">
+                    <div className="h-10 w-10 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-lg flex items-center justify-center mb-4">
+                      <Sliders className="h-5 w-5" />
+                    </div>
+                    <h3 className="font-semibold text-slate-900 dark:text-white mb-2">Kontrol Relay Jarak Jauh</h3>
+                    <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                      Nyalakan (ON) atau matikan (OFF) stop kontak / saklar via relay dari mana saja. Anda juga bisa mengganti Label / Nama Relay dengan <strong>menekan kotak relay agak lama (long-press)</strong>.
+                    </p>
+                  </div>
+
+                  {/* Card 5 */}
+                  <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border dark:border-slate-800 shadow-sm">
+                    <div className="h-10 w-10 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg flex items-center justify-center mb-4">
+                      <Zap className="h-5 w-5" />
+                    </div>
+                    <h3 className="font-semibold text-slate-900 dark:text-white mb-2">Proteksi (Auto Cut-off)</h3>
+                    <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                      Lindungi kelistrikan rumah Anda dari korsleting. Tentukan batas maksimal daya (misal: 1000 W). Jika daya sensor menyentuh angka ini, ESP32 akan langsung memutus arus semua jalur relay seketika (Kill Switch).
+                    </p>
+                  </div>
+
+                  {/* Card 6 */}
+                  <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border dark:border-slate-800 shadow-sm">
+                    <div className="h-10 w-10 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg flex items-center justify-center mb-4">
+                      <Clock className="h-5 w-5" />
+                    </div>
+                    <h3 className="font-semibold text-slate-900 dark:text-white mb-2">Penjadwalan Cerdas</h3>
+                    <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                      Atur jam berapa sebuah relay harus hidup (ON), dan jam berapa ia harus mati otomatis (OFF). Hal ini sangat berguna untuk automasi lampu teras atau perangkat yang beroperasi secara periodik tanpa membebani rutinitas harian Anda.
+                    </p>
+                  </div>
+                </div>
               </div>
             )}
           </motion.div>
@@ -428,6 +602,32 @@ export function Dashboard() {
           </motion.button>
         ))}
       </div>
+
+      <OnboardingModal 
+        isOpen={showOnboarding} 
+        onComplete={() => setShowOnboarding(false)} 
+        onSaveConfig={refreshConfig}
+      />
+
+      <ProfileSettingsModal
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+        user={user}
+        onLogout={logout}
+        onResetData={resetAllData}
+        onShowTutorial={() => {
+          setShowProfileModal(false);
+          setShowOnboarding(true);
+        }}
+        onSaveConfig={refreshConfig}
+        isAutoSyncEnabled={isAutoSyncEnabled}
+        toggleAutoSync={toggleAutoSync}
+      />
+
+      <FirmwarePromptModal
+        isOpen={showFirmwarePrompt}
+        onClose={() => setShowFirmwarePrompt(false)}
+      />
     </div>
   );
 }

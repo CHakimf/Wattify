@@ -77,9 +77,15 @@ function SortableCard({ id, card }: SortableCardProps) {
           <card.icon className={`h-4 w-4 ${card.iconColor}`} />
         </CardHeader>
         <CardContent>
-          <div className={`text-2xl font-bold ${card.overload && card.title === 'Daya Aktif' ? 'text-red-600 dark:text-red-400' : (card.warning && card.title === 'Daya Aktif' ? 'text-yellow-600 dark:text-yellow-400' : '')}`}>
+          <motion.div 
+            key={card.value}
+            initial={{ opacity: 0.4, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+            className={`text-2xl font-bold ${card.overload && card.title === 'Daya Aktif' ? 'text-red-600 dark:text-red-400' : (card.warning && card.title === 'Daya Aktif' ? 'text-yellow-600 dark:text-yellow-400' : '')}`}
+          >
             {card.value}
-          </div>
+          </motion.div>
           {card.subValue && <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{card.subValue}</p>}
           {card.extra && <p className={`text-xs mt-1 ${card.overload ? 'text-red-500' : 'text-yellow-600 dark:text-yellow-400 font-medium'}`}>{card.extra}</p>}
         </CardContent>

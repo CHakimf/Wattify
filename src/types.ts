@@ -33,6 +33,7 @@ export interface Settings {
   threshold: number;
   tariffPerKwh: number;
   autoCutoff: boolean;
+  dailyEnergyGoal?: number;
   relayNames: {
     [key: string]: string;
   };

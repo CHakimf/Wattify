@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, User as UserIcon, LogOut, Database, Key, RefreshCw, AlertTriangle, ShieldCheck, Mail, CreditCard } from 'lucide-react';
+import { X, User as UserIcon, LogOut, Database, Key, RefreshCw, AlertTriangle, ShieldCheck, Mail, CreditCard, Settings as SettingsIcon, Save, Check, Activity } from 'lucide-react';
 import { User } from 'firebase/auth';
+import { Settings, MonitoringData } from '../types';
 
 interface Props {
   isOpen: boolean;
@@ -13,21 +14,28 @@ interface Props {
   onSaveConfig: () => void;
   isAutoSyncEnabled: boolean;
   toggleAutoSync: () => void;
+  settings: Settings;
+  onSaveSettings: (settings: Partial<Settings>) => void;
+  history?: any[];
+  monitoring?: MonitoringData;
 }
 
-export function ProfileSettingsModal({ isOpen, onClose, user, onLogout, onResetData, onShowTutorial, onSaveConfig, isAutoSyncEnabled, toggleAutoSync }: Props) {
-  const [activeTab, setActiveTab] = useState<'profile' | 'firebase' | 'danger'>('profile');
+export function ProfileSettingsModal({ isOpen, onClose, user, onLogout, onResetData, onShowTutorial, onSaveConfig, isAutoSyncEnabled, toggleAutoSync, settings, onSaveSettings, history = [], monitoring }: Props) {
+  const [activeTab, setActiveTab] = useState<'profile' | 'settings' | 'firebase' | 'danger'>('profile');
   const [apiKey, setApiKey] = useState('');
   const [dbUrl, setDbUrl] = useState('');
   const [showConfigSaved, setShowConfigSaved] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [localSettings, setLocalSettings] = useState<Settings>(settings);
+  const [isSettingsSaved, setIsSettingsSaved] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       setApiKey(localStorage.getItem('wattify_firebase_api_key') || '');
       setDbUrl(localStorage.getItem('wattify_firebase_db_url') || '');
+      setLocalSettings(settings);
     }
-  }, [isOpen]);
+  }, [isOpen, settings]);
 
   const handleSaveFirebaseConfig = (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,6 +44,13 @@ export function ProfileSettingsModal({ isOpen, onClose, user, onLogout, onResetD
     setShowConfigSaved(true);
     onSaveConfig();
     setTimeout(() => setShowConfigSaved(false), 3000);
+  };
+  
+  const handleSaveAppConfig = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSaveSettings(localSettings);
+    setIsSettingsSaved(true);
+    setTimeout(() => setIsSettingsSaved(false), 3000);
   };
 
   const executeReset = () => {
@@ -107,6 +122,13 @@ export function ProfileSettingsModal({ isOpen, onClose, user, onLogout, onResetD
                 Profil Pengguna
               </button>
               <button
+                onClick={() => setActiveTab('settings')}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${activeTab === 'settings' ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800/50'}`}
+              >
+                <SettingsIcon className="w-4 h-4" />
+                Pengaturan
+              </button>
+              <button
                 onClick={() => setActiveTab('firebase')}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${activeTab === 'firebase' ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800/50'}`}
               >
@@ -150,20 +172,81 @@ export function ProfileSettingsModal({ isOpen, onClose, user, onLogout, onResetD
                     </div>
                   </div>
                 </div>
+              </div>
+            )}
 
-                <div className="pt-6 border-t dark:border-slate-800">
-                  <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Statistik Akun</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                     <div className="p-4 rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20">
-                       <p className="text-xs font-medium text-slate-500 mb-1">Total Login</p>
-                       <p className="text-xl font-bold text-slate-900 dark:text-white">14 Hari</p>
-                     </div>
-                     <div className="p-4 rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20">
-                       <p className="text-xs font-medium text-slate-500 mb-1">Perangkat Disimpan</p>
-                       <p className="text-xl font-bold text-slate-900 dark:text-white">1 ESP32</p>
-                     </div>
-                  </div>
+            {activeTab === 'settings' && (
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">Pengaturan Aplikasi</h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
+                    Atur tarif listrik dan batas konsumsi harian di sini.
+                  </p>
                 </div>
+
+                <form onSubmit={handleSaveAppConfig} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                      Tarif Listrik (Rp/kWh)
+                    </label>
+                    <input
+                      type="number"
+                      value={localSettings.tariffPerKwh}
+                      onChange={(e) => setLocalSettings({ ...localSettings, tariffPerKwh: Number(e.target.value) })}
+                      className="block w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-shadow"
+                    />
+                    <p className="text-xs text-slate-500 mt-1">Digunakan untuk estimasi tagihan listrik pada dashboard.</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                      Batas Konsumsi Harian (kWh)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      value={localSettings.dailyEnergyGoal || 0}
+                      onChange={(e) => setLocalSettings({ ...localSettings, dailyEnergyGoal: Number(e.target.value) })}
+                      className="block w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-shadow"
+                    />
+                    <p className="text-xs text-slate-500 mt-1">Atur target penggunaan energi harian untuk memantau performa penghematan.</p>
+                  </div>
+
+                  <div className="pt-4 flex items-center gap-4">
+                    <button
+                      type="submit"
+                      disabled={isSettingsSaved}
+                      className={`px-6 py-2.5 rounded-xl text-white font-bold transition-all shadow-md active:scale-95 flex items-center gap-2 ${
+                        isSettingsSaved ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'
+                      }`}
+                    >
+                      {isSettingsSaved ? (
+                        <>
+                          <Check className="h-4 w-4" />
+                          Tersimpan!
+                        </>
+                      ) : (
+                        <>
+                          <Save className="h-4 w-4" />
+                          Simpan Pengaturan
+                        </>
+                      )}
+                    </button>
+                    <AnimatePresence>
+                      {isSettingsSaved && (
+                        <motion.span 
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0 }}
+                          className="text-sm font-medium text-green-600 dark:text-green-400"
+                        >
+                          Pengaturan Berhasil Disimpan!
+                        </motion.span>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                </form>
               </div>
             )}
 

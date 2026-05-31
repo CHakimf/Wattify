@@ -78,14 +78,14 @@ export function LandingPage() {
       {/* Navigation */}
       <nav className="fixed top-0 w-full z-50 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-100 dark:border-slate-900">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <img 
-              src="https://upload.wikimedia.org/wikipedia/commons/0/08/Logo_UBB.png" 
+              src="https://upload.wikimedia.org/wikipedia/id/8/87/Logo_Universitas_Bangka_Belitung.png" 
               alt="Logo UBB" 
               className="h-8 object-contain" 
               referrerPolicy="no-referrer" 
             />
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 border-l-2 border-slate-200 dark:border-slate-800 pl-3">
               <div className="p-1.5 bg-blue-600 rounded-lg text-white">
                 <Zap className="h-5 w-5" />
               </div>
@@ -144,12 +144,12 @@ export function LandingPage() {
               <div className="flex items-center justify-between mb-10 shrink-0">
                 <div className="flex items-center gap-3">
                   <img 
-                    src="https://upload.wikimedia.org/wikipedia/commons/0/08/Logo_UBB.png" 
+                    src="https://upload.wikimedia.org/wikipedia/id/8/87/Logo_Universitas_Bangka_Belitung.png" 
                     alt="Logo UBB" 
                     className="h-7 object-contain" 
                     referrerPolicy="no-referrer" 
                   />
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 border-l-2 border-slate-200 dark:border-slate-800 pl-3">
                     <div className="p-1 bg-blue-600 rounded-md text-white">
                       <Zap className="h-4 w-4" />
                     </div>
@@ -221,6 +221,11 @@ export function LandingPage() {
                 Kendalikan Energi <br />
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-500">Lebih Cerdas.</span>
               </h1>
+              <div className="bg-slate-100 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700 max-w-xl mb-6">
+                <p className="text-sm font-medium text-slate-800 dark:text-slate-200 text-center">
+                  Project Kelompok 2 — Mata Kuliah Sinyal dan Sistem
+                </p>
+              </div>
               <p className="text-lg text-slate-600 dark:text-slate-400 mb-10 max-w-xl leading-relaxed">
                 Wattify membantu Anda memantau penggunaan listrik secara real-time dari perangkat ESP32. Hemat biaya, amankan perangkat, dan optimalkan konsumsi energi Anda.
               </p>
@@ -247,16 +252,20 @@ export function LandingPage() {
               </div>
 
               <div className="flex items-center gap-4">
-                <div className="flex -space-x-3">
-                  {[1, 2, 3, 4].map(i => (
-                    <div key={i} className="h-10 w-10 rounded-full border-2 border-white dark:border-slate-950 bg-slate-200 dark:bg-slate-800 overflow-hidden">
-                      <img src={`https://i.pravatar.cc/100?img=${i+10}`} alt="User" referrerPolicy="no-referrer" />
-                    </div>
-                  ))}
+                <div className="flex -space-x-2">
+                  <div className="h-10 w-10 rounded-full border-2 border-white dark:border-slate-950 bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-blue-600 dark:text-blue-400 z-20">
+                    <Zap className="h-5 w-5" />
+                  </div>
+                  <div className="h-10 w-10 rounded-full border-2 border-white dark:border-slate-950 bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center text-indigo-600 dark:text-indigo-400 z-10">
+                     <Cpu className="h-5 w-5" />
+                  </div>
+                  <div className="h-10 w-10 rounded-full border-2 border-white dark:border-slate-950 bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400">
+                     <Activity className="h-5 w-5" />
+                  </div>
                 </div>
                 <div className="text-sm">
-                  <div className="font-bold text-slate-900 dark:text-white">500+ Pengguna</div>
-                  <div className="text-slate-500">Telah menghemat energi mereka</div>
+                  <div className="font-bold text-slate-900 dark:text-white">Implementasi Real-time</div>
+                  <div className="text-slate-500">Integrasi Hardware ESP32 & IoT</div>
                 </div>
               </div>
             </motion.div>
@@ -434,13 +443,43 @@ export function LandingPage() {
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
             >
-              <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-6">Tentang Wattify</h2>
-              <p className="text-slate-600 dark:text-slate-400 mb-4 leading-relaxed">
-                Wattify adalah platform monitoring energi berbasis IoT yang dirancang untuk memberikan visibilitas penuh terhadap penggunaan listrik Anda. Kami percaya bahwa dengan data yang tepat, setiap rumah tangga dapat berkontribusi pada efisiensi energi global sambil menghemat biaya pengeluaran bulanan.
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 text-xs font-bold uppercase tracking-wider mb-6">
+                Project Akademik
+              </div>
+              <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-6">Tentang Project Ini</h2>
+              <p className="text-slate-600 dark:text-slate-400 mb-6 leading-relaxed">
+                Wattify dikembangkan sebagai project akademik untuk mengimplementasikan teori pemrosesan sinyal dan otomasi dalam kehidupan nyata. Proyek ini bertujuan untuk menciptakan alat monitoring konsumsi listrik yang efisien, akurat, dan mudah diakses.
               </p>
-              <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
-                Dimulai sebagai proyek inovasi untuk memudahkan pemantauan perangkat ESP32, Wattify kini berkembang menjadi solusi komprehensif yang menggabungkan perangkat keras presisi tinggi dengan antarmuka cloud yang intuitif.
-              </p>
+              
+              <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full -translate-y-1/2 translate-x-1/2" />
+                <h3 className="font-bold text-slate-900 dark:text-white mb-5 flex items-center gap-2">
+                  <span className="h-6 w-1 bg-blue-600 rounded-full" />
+                  Informasi Akademik
+                </h3>
+                <div className="space-y-5 text-sm">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                    <span className="text-slate-500 dark:text-slate-400 mb-1 sm:mb-0">Mata Kuliah</span>
+                    <strong className="text-slate-800 dark:text-slate-200 text-base">Sinyal dan Sistem</strong>
+                  </div>
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                    <span className="text-slate-500 dark:text-slate-400 mb-1 sm:mb-0 sm:mt-1">Tim Pengembang (Kelompok 2)</span>
+                    <div className="space-y-1 sm:text-right">
+                      <div className="font-bold text-slate-800 dark:text-slate-200 text-base">1. Ichan Arya Prasetyo</div>
+                      <div className="font-bold text-slate-800 dark:text-slate-200 text-base">2. Chakim Fadlan</div>
+                      <div className="font-bold text-slate-800 dark:text-slate-200 text-base">3. Rudi Aji Budiana</div>
+                      <div className="font-bold text-slate-800 dark:text-slate-200 text-base">4. Djibril Al Ghibrani</div>
+                    </div>
+                  </div>
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between">
+                    <span className="text-slate-500 dark:text-slate-400 mb-2 sm:mb-0 sm:mt-1">Dosen Pengampu</span>
+                    <div className="space-y-1 sm:text-right">
+                      <div className="font-bold text-slate-800 dark:text-slate-200 text-base">Fardhan Arkan, S.T., M.T</div>
+                      <div className="font-bold text-slate-800 dark:text-slate-200 text-base">Nanda Aulia Ilmatus Sakdiyah, S.T., M.T.</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </motion.div>
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
@@ -474,21 +513,21 @@ export function LandingPage() {
                   <Mail className="h-5 w-5" />
                 </div>
                 <h4 className="font-bold text-slate-900 dark:text-white mb-1">Email</h4>
-                <p className="text-sm text-slate-500">support@wattify.io</p>
+                <p className="text-sm text-slate-500">suport.wattify@gmail.com</p>
               </div>
               <div className="p-6 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
                 <div className="h-10 w-10 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full flex items-center justify-center mx-auto mb-4">
                   <Smartphone className="h-5 w-5" />
                 </div>
                 <h4 className="font-bold text-slate-900 dark:text-white mb-1">WhatsApp</h4>
-                <p className="text-sm text-slate-500">+62 812-3456-7890</p>
+                <p className="text-sm text-slate-500">082280418787</p>
               </div>
               <div className="p-6 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
                 <div className="h-10 w-10 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full flex items-center justify-center mx-auto mb-4">
                   <Globe className="h-5 w-5" />
                 </div>
                 <h4 className="font-bold text-slate-900 dark:text-white mb-1">Lokasi</h4>
-                <p className="text-sm text-slate-500">Jakarta, Indonesia</p>
+                <p className="text-sm text-slate-500">Desa Balunijuk, Kecamatan Merawang, Kabupaten Bangka, Provinsi Kepulauan Bangka Belitung</p>
               </div>
             </div>
           </div>
@@ -498,11 +537,19 @@ export function LandingPage() {
       {/* Footer */}
       <footer className="py-12 bg-white dark:bg-slate-950">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-2">
-            <div className="p-1.5 bg-blue-600 rounded-lg text-white">
-              <Zap className="h-4 w-4" />
+          <div className="flex items-center gap-3">
+            <img 
+              src="https://upload.wikimedia.org/wikipedia/id/8/87/Logo_Universitas_Bangka_Belitung.png" 
+              alt="Logo UBB" 
+              className="h-6 object-contain" 
+              referrerPolicy="no-referrer" 
+            />
+            <div className="flex items-center gap-2 border-l-2 border-slate-200 dark:border-slate-800 pl-3">
+              <div className="p-1.5 bg-blue-600 rounded-lg text-white">
+                <Zap className="h-4 w-4" />
+              </div>
+              <span className="text-lg font-bold text-slate-900 dark:text-white tracking-tight">Wattify</span>
             </div>
-            <span className="text-lg font-bold text-slate-900 dark:text-white tracking-tight">Wattify</span>
           </div>
           <p className="text-sm text-slate-500 dark:text-slate-400">
             © 2026 Wattify IoT. Dibuat dengan ❤️ untuk efisiensi energi.

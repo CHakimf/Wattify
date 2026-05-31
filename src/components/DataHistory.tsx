@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/Card';
-import { Download, History, Trash2, Zap, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Download, History, Trash2, Zap, RefreshCw, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { MonitoringData } from '../types';
 import { format } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
@@ -13,6 +13,10 @@ interface Props {
 
 export function DataHistory({ history, onClearHistory, onResetData }: Props) {
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+  
+  const totalPages = Math.ceil(history.length / itemsPerPage);
 
   const handleExportCSV = () => {
     if (history.length === 0) return;
@@ -46,8 +50,11 @@ export function DataHistory({ history, onClearHistory, onResetData }: Props) {
     document.body.removeChild(link);
   };
 
-  // Show only last 10 items in the table
-  const displayHistory = [...history].reverse().slice(0, 10);
+  const displayHistory = useMemo(() => {
+    const reversed = [...history].reverse();
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return reversed.slice(startIndex, startIndex + itemsPerPage);
+  }, [history, currentPage]);
 
   // Group by day and calculate total energy per day
   const dailyEnergyData = useMemo(() => {
@@ -114,7 +121,7 @@ export function DataHistory({ history, onClearHistory, onResetData }: Props) {
         </div>
       </CardHeader>
       <CardContent className="pt-6">
-        <div className="overflow-x-auto mb-8">
+        <div className="overflow-x-auto mb-4">
           <table className="w-full text-sm text-left">
             <thead className="text-xs text-slate-500 uppercase bg-slate-50 dark:bg-slate-800/50 dark:text-slate-400">
               <tr>
@@ -152,6 +159,35 @@ export function DataHistory({ history, onClearHistory, onResetData }: Props) {
             </tbody>
           </table>
         </div>
+
+        {history.length > itemsPerPage && (
+          <div className="flex items-center justify-between px-2 py-3 mb-6 text-sm text-slate-500 dark:text-slate-400">
+            <div>
+              Menampilkan {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, history.length)} dari {history.length} data
+            </div>
+            <div className="flex items-center gap-1 border dark:border-slate-800 rounded-lg p-1 bg-slate-50 dark:bg-slate-800/30">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="p-1.5 rounded-md text-slate-600 hover:bg-slate-200 dark:text-slate-300 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                title="Halaman Sebelumnya"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+              <span className="px-3 font-medium text-slate-700 dark:text-slate-200">
+                {currentPage} / {totalPages}
+              </span>
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="p-1.5 rounded-md text-slate-600 hover:bg-slate-200 dark:text-slate-300 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                title="Halaman Selanjutnya"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+        )}
 
         {dailyEnergyData.length > 0 && (
           <div className="mt-8 pt-6 border-t dark:border-slate-800">

@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useFirebaseData } from '../hooks/useFirebaseData';
 import { MonitoringCards } from './MonitoringCards';
 import { RelayControl } from './RelayControl';
 import { PowerChart } from './PowerChart';
 import { PowerGauge } from './PowerGauge';
-import { SettingsPanel } from './SettingsPanel';
+import { DailyEnergyGoalProgress } from './DailyEnergyGoalProgress';
 import { DataHistory } from './DataHistory';
 import { PowerAnalysis } from './PowerAnalysis';
 import { UsageStatistics } from './UsageStatistics';
@@ -17,6 +17,7 @@ import { Moon, Sun, Zap, Wifi, WifiOff, Server, Activity, Sliders, Cpu, Clock, L
 import { OnboardingModal } from './OnboardingModal';
 import { ProfileSettingsModal } from './ProfileSettingsModal';
 import { FirmwarePromptModal } from './FirmwarePromptModal';
+import { OfflineAlertModal } from './OfflineAlertModal';
 import { motion, AnimatePresence } from 'motion/react';
 
 const showNativeNotification = async (title: string, options: NotificationOptions) => {
@@ -94,25 +95,16 @@ export function Dashboard() {
   // Handle Overload & Warning Notification
   const [warningNotified, setWarningNotified] = useState(false);
   const [offlineNotified, setOfflineNotified] = useState(false);
+  const [showOfflineModal, setShowOfflineModal] = useState(false);
+  const hasBeenOnlineRef = useRef(false);
 
   // Handle Offline Notification
   useEffect(() => {
     // Avoid triggering on initial load
     if (isLoading) return;
 
-    if (!isDeviceOnline) {
-      if (!offlineNotified) {
-        if ('Notification' in window && Notification.permission === 'granted') {
-          showNativeNotification('Perangkat Offline!', {
-            body: 'Koneksi ke perangkat ESP32 terputus. Pastikan perangkat menyala dan terhubung dengan WiFi.',
-            icon: '/favicon.ico'
-          });
-        } else if (!('Notification' in window) || Notification.permission !== 'granted') {
-          alert('Perangkat Offline! Koneksi ke perangkat ESP32 terputus.');
-        }
-        setOfflineNotified(true);
-      }
-    } else {
+    if (isDeviceOnline) {
+      hasBeenOnlineRef.current = true;
       if (offlineNotified) {
         if ('Notification' in window && Notification.permission === 'granted') {
           showNativeNotification('Perangkat Online', {
@@ -121,6 +113,17 @@ export function Dashboard() {
           });
         }
         setOfflineNotified(false);
+      }
+    } else {
+      if (hasBeenOnlineRef.current && !offlineNotified) {
+        if ('Notification' in window && Notification.permission === 'granted') {
+          showNativeNotification('Perangkat Offline!', {
+            body: 'Koneksi ke perangkat ESP32 terputus. Pastikan perangkat menyala dan terhubung dengan WiFi.',
+            icon: '/favicon.ico'
+          });
+        }
+        setShowOfflineModal(true);
+        setOfflineNotified(true);
       }
     }
   }, [isDeviceOnline, isLoading, offlineNotified]);
@@ -220,15 +223,23 @@ export function Dashboard() {
       {/* Header */}
       <header className="bg-white dark:bg-slate-900 border-b dark:border-slate-800 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <motion.div 
-              initial={{ rotate: -20, scale: 0.8 }}
-              animate={{ rotate: 0, scale: 1 }}
-              className="bg-blue-600 p-2 rounded-lg"
-            >
-              <Zap className="h-5 w-5 text-white" />
-            </motion.div>
-            <h1 className="text-xl font-bold tracking-tight hidden sm:block">Wattify</h1>
+          <div className="flex items-center gap-3">
+            <img 
+              src="https://upload.wikimedia.org/wikipedia/id/8/87/Logo_Universitas_Bangka_Belitung.png" 
+              alt="Logo UBB" 
+              className="h-8 object-contain" 
+              referrerPolicy="no-referrer" 
+            />
+            <div className="flex items-center gap-2 border-l-2 border-slate-200 dark:border-slate-800 pl-3">
+              <motion.div 
+                initial={{ rotate: -20, scale: 0.8 }}
+                animate={{ rotate: 0, scale: 1 }}
+                className="bg-blue-600 p-2 rounded-lg"
+              >
+                <Zap className="h-5 w-5 text-white" />
+              </motion.div>
+              <h1 className="text-xl font-bold tracking-tight hidden sm:block">Wattify</h1>
+            </div>
           </div>
           
           <div className="flex items-center gap-3">
@@ -350,6 +361,7 @@ export function Dashboard() {
           >
             {activeTab === 'data' && (
               <div className="space-y-6">
+                <DailyEnergyGoalProgress history={history} settings={settings} energyTotal={monitoring.energy} />
                 <PowerGauge monitoring={monitoring} settings={settings} />
                 <MonitoringCards data={monitoring} settings={settings} onUpdateOrder={(order) => updateSettings({ cardOrder: order })} />
                 
@@ -435,7 +447,6 @@ export function Dashboard() {
                   onToggle={updateRelay} 
                   onSaveSettings={updateSettings}
                 />
-                <SettingsPanel settings={settings} onSave={updateSettings} />
               </div>
             )}
 
@@ -622,11 +633,20 @@ export function Dashboard() {
         onSaveConfig={refreshConfig}
         isAutoSyncEnabled={isAutoSyncEnabled}
         toggleAutoSync={toggleAutoSync}
+        settings={settings}
+        onSaveSettings={updateSettings}
+        history={history}
+        monitoring={monitoring}
       />
 
       <FirmwarePromptModal
         isOpen={showFirmwarePrompt}
         onClose={() => setShowFirmwarePrompt(false)}
+      />
+
+      <OfflineAlertModal
+        isOpen={showOfflineModal}
+        onClose={() => setShowOfflineModal(false)}
       />
     </div>
   );

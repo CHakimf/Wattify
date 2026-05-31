@@ -10,6 +10,7 @@ const defaultSettings: Partial<Settings> = {
   threshold: 2200,
   tariffPerKwh: 1444.70,
   autoCutoff: true,
+  dailyEnergyGoal: 5,
   relayNames: {}
 };
 
@@ -35,17 +36,7 @@ export function useFirebaseData() {
   const [relays, setRelays] = useState<RelayControl>({});
   const [settings, setSettings] = useState<Settings>(defaultSettings as Settings);
   const [availableNetworks, setAvailableNetworks] = useState<WifiNetwork[]>([]);
-  const [history, setHistory] = useState<MonitoringData[]>(() => {
-    const saved = localStorage.getItem('wattify_history');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        return [];
-      }
-    }
-    return [];
-  });
+  const [history, setHistory] = useState<MonitoringData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [lastSync, setLastSync] = useState<number | null>(null);
   
@@ -227,9 +218,16 @@ export function useFirebaseData() {
           setMonitoring(newData);
           setHistory(prev => {
             const newHistory = [...prev, newData];
-            // Keep last 2000 data points for chart (approx 2.5 hours if 1 point / 5 sec)
-            if (newHistory.length > 2000) return newHistory.slice(newHistory.length - 2000);
-            return newHistory;
+            // Keep last 500 data points for chart
+            const trimmedHistory = newHistory.length > 500 ? newHistory.slice(newHistory.length - 500) : newHistory;
+            
+            // Sync to Firebase periodically (every 10 ticks = approx 50 seconds to avoid high bandwidth cost)
+            // or just write it if we are small enough. For safety we write every 5th tick.
+            if (newHistory.length % 5 === 0) {
+              set(ref(currentDb, getPath('history')), trimmedHistory).catch(() => {});
+            }
+
+            return trimmedHistory;
           });
         }
         checkLoading();
@@ -271,10 +269,18 @@ export function useFirebaseData() {
       }
     });
 
+    // Fetch history from Firebase
+    const historyRef = ref(currentDb, getPath('history'));
+    get(historyRef).then(snapshot => {
+      if (snapshot.exists()) {
+        setHistory(snapshot.val() || []);
+      }
+    });
+
     // Check device online status every 1 second
-    // If no data received for 7 seconds, consider device offline
+    // If no data received for 10 seconds, consider device offline
     const interval = setInterval(() => {
-      if (isAutoSyncEnabled && lastUpdateRef.current > 0 && Date.now() - lastUpdateRef.current > 7000) {
+      if (isAutoSyncEnabled && lastUpdateRef.current > 0 && Date.now() - lastUpdateRef.current > 10000) {
         if (!isOfflineRef.current) {
           setIsDeviceOnline(false);
           isOfflineRef.current = true;
@@ -309,11 +315,6 @@ export function useFirebaseData() {
 
   // Helper for generating dynamic paths
   const getPath = (path: string) => basePath ? `${basePath}/${path}` : path;
-
-  // Save history to localStorage whenever it changes
-  useEffect(() => {
-    localStorage.setItem('wattify_history', JSON.stringify(history));
-  }, [history]);
 
   // Auto Cut-off Logic
   useEffect(() => {
@@ -358,9 +359,8 @@ export function useFirebaseData() {
   };
 
   const resetAllData = () => {
-    // 1. Reset frontend history
     setHistory([]);
-    localStorage.removeItem('wattify_history');
+    set(ref(activeDb, getPath('history')), []);
     
     // 2. Instruct ESP32 to reset energy counter
     set(ref(activeDb, getPath('system/reset_energy')), serverTimestamp());
@@ -368,7 +368,7 @@ export function useFirebaseData() {
 
   const clearHistory = () => {
     setHistory([]);
-    localStorage.removeItem('wattify_history');
+    set(ref(activeDb, getPath('history')), []);
   };
 
   const logout = () => {

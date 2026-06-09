@@ -51,4 +51,7 @@ export interface Settings {
     };
   };
   cardOrder?: string[];
+  dailyEnergyStarts?: {
+    [dateStr: string]: number;
+  };
 }

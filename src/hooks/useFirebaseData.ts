@@ -215,11 +215,27 @@ export function useFirebaseData() {
             newData.uptime_s = 0;
           }
           
-          setMonitoring(newData);
+          setMonitoring({ ...newData });
+
+          if (isActuallyOnline && typeof data.energy === 'number') {
+            const d = new Date();
+            const todayStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            
+            get(ref(currentDb, getPath(`settings/dailyEnergyStarts/${todayStr}`))).then(snapshot => {
+              const startVal = snapshot.val();
+              if (startVal === null || startVal > data.energy) {
+                // Not set for today or device was reset
+                set(ref(currentDb, getPath(`settings/dailyEnergyStarts/${todayStr}`)), data.energy);
+              }
+            }).catch(() => {});
+          }
+
           setHistory(prev => {
+            if (!historyLoaded) return prev;
+
             const newHistory = [...prev, newData];
-            // Keep last 500 data points for chart
-            const trimmedHistory = newHistory.length > 500 ? newHistory.slice(newHistory.length - 500) : newHistory;
+            // Keep last 2000 data points for chart
+            const trimmedHistory = newHistory.length > 2000 ? newHistory.slice(newHistory.length - 2000) : newHistory;
             
             // Sync to Firebase periodically (every 10 ticks = approx 50 seconds to avoid high bandwidth cost)
             // or just write it if we are small enough. For safety we write every 5th tick.
@@ -271,16 +287,20 @@ export function useFirebaseData() {
 
     // Fetch history from Firebase
     const historyRef = ref(currentDb, getPath('history'));
+    let historyLoaded = false;
     get(historyRef).then(snapshot => {
       if (snapshot.exists()) {
         setHistory(snapshot.val() || []);
       }
+      historyLoaded = true;
+    }).catch(() => {
+      historyLoaded = true;
     });
 
     // Check device online status every 1 second
-    // If no data received for 10 seconds, consider device offline
+    // If no data received for 15 seconds, consider device offline
     const interval = setInterval(() => {
-      if (isAutoSyncEnabled && lastUpdateRef.current > 0 && Date.now() - lastUpdateRef.current > 10000) {
+      if (isAutoSyncEnabled && lastUpdateRef.current > 0 && Date.now() - lastUpdateRef.current > 15000) {
         if (!isOfflineRef.current) {
           setIsDeviceOnline(false);
           isOfflineRef.current = true;

@@ -34,7 +34,7 @@ export function OfflineAlertModal({ isOpen, onClose }: OfflineAlertModalProps) {
                   Perangkat Offline!
                 </h3>
                 <p className="text-slate-600 dark:text-slate-400 text-sm mb-6">
-                  Koneksi ke perangkat ESP32 telah terputus selama lebih dari 10 detik. Sistem tidak dapat memperbarui data secara real-time.
+                  Koneksi ke perangkat ESP32 telah terputus selama lebih dari 15 detik. Sistem tidak dapat memperbarui data secara real-time.
                 </p>
 
                 <div className="w-full bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 rounded-lg p-4 text-left">

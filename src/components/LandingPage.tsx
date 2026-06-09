@@ -79,13 +79,7 @@ export function LandingPage() {
       <nav className="fixed top-0 w-full z-50 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-100 dark:border-slate-900">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img 
-              src="https://upload.wikimedia.org/wikipedia/id/8/87/Logo_Universitas_Bangka_Belitung.png" 
-              alt="Logo UBB" 
-              className="h-8 object-contain" 
-              referrerPolicy="no-referrer" 
-            />
-            <div className="flex items-center gap-2 border-l-2 border-slate-200 dark:border-slate-800 pl-3">
+            <div className="flex items-center gap-2">
               <div className="p-1.5 bg-blue-600 rounded-lg text-white">
                 <Zap className="h-5 w-5" />
               </div>
@@ -143,13 +137,7 @@ export function LandingPage() {
             >
               <div className="flex items-center justify-between mb-10 shrink-0">
                 <div className="flex items-center gap-3">
-                  <img 
-                    src="https://upload.wikimedia.org/wikipedia/id/8/87/Logo_Universitas_Bangka_Belitung.png" 
-                    alt="Logo UBB" 
-                    className="h-7 object-contain" 
-                    referrerPolicy="no-referrer" 
-                  />
-                  <div className="flex items-center gap-1.5 border-l-2 border-slate-200 dark:border-slate-800 pl-3">
+                  <div className="flex items-center gap-1.5">
                     <div className="p-1 bg-blue-600 rounded-md text-white">
                       <Zap className="h-4 w-4" />
                     </div>
@@ -538,13 +526,7 @@ export function LandingPage() {
       <footer className="py-12 bg-white dark:bg-slate-950">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-3">
-            <img 
-              src="https://upload.wikimedia.org/wikipedia/id/8/87/Logo_Universitas_Bangka_Belitung.png" 
-              alt="Logo UBB" 
-              className="h-6 object-contain" 
-              referrerPolicy="no-referrer" 
-            />
-            <div className="flex items-center gap-2 border-l-2 border-slate-200 dark:border-slate-800 pl-3">
+            <div className="flex items-center gap-2">
               <div className="p-1.5 bg-blue-600 rounded-lg text-white">
                 <Zap className="h-4 w-4" />
               </div>

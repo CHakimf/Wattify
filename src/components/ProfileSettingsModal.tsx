@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, User as UserIcon, LogOut, Database, Key, RefreshCw, AlertTriangle, ShieldCheck, Mail, CreditCard, Settings as SettingsIcon, Save, Check, Activity } from 'lucide-react';
-import { User } from 'firebase/auth';
+import { X, User as UserIcon, LogOut, Database, Key, RefreshCw, AlertTriangle, ShieldCheck, Mail, CreditCard, Settings as SettingsIcon, Save, Check, Activity, Edit3, Image as ImageIcon } from 'lucide-react';
+import { User, updateProfile } from 'firebase/auth';
+import { auth } from '../lib/firebase';
 import { Settings, MonitoringData } from '../types';
 
 interface Props {
@@ -28,14 +29,20 @@ export function ProfileSettingsModal({ isOpen, onClose, user, onLogout, onResetD
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [localSettings, setLocalSettings] = useState<Settings>(settings);
   const [isSettingsSaved, setIsSettingsSaved] = useState(false);
+  const [showAvatarSelect, setShowAvatarSelect] = useState(false);
+  const [customAvatarUrl, setCustomAvatarUrl] = useState('');
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [displayNameInput, setDisplayNameInput] = useState('');
 
   useEffect(() => {
     if (isOpen) {
       setApiKey(localStorage.getItem('wattify_firebase_api_key') || '');
       setDbUrl(localStorage.getItem('wattify_firebase_db_url') || '');
       setLocalSettings(settings);
+      setDisplayNameInput(user?.displayName || '');
     }
-  }, [isOpen, settings]);
+  }, [isOpen, settings, user]);
 
   const handleSaveFirebaseConfig = (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,6 +53,50 @@ export function ProfileSettingsModal({ isOpen, onClose, user, onLogout, onResetD
     setTimeout(() => setShowConfigSaved(false), 3000);
   };
   
+  const AVATAR_TEMPLATES = [
+    'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix',
+    'https://api.dicebear.com/7.x/avataaars/svg?seed=Annie',
+    'https://api.dicebear.com/7.x/avataaars/svg?seed=Jasper',
+    'https://api.dicebear.com/7.x/avataaars/svg?seed=Cleo',
+    'https://api.dicebear.com/7.x/avataaars/svg?seed=Oscar',
+    'https://api.dicebear.com/7.x/avataaars/svg?seed=Mia',
+    'https://api.dicebear.com/7.x/bottts/svg?seed=Robot',
+    'https://api.dicebear.com/7.x/pixel-art/svg?seed=Retro'
+  ];
+
+  const handleUpdateAvatar = async (url: string) => {
+    if (!auth.currentUser) return;
+    setIsUpdatingProfile(true);
+    try {
+      await updateProfile(auth.currentUser, {
+        photoURL: url
+      });
+      setShowAvatarSelect(false);
+      setCustomAvatarUrl('');
+      // Force reload to reflect photoURL changes globally
+      window.location.reload();
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      setIsUpdatingProfile(false);
+    }
+  };
+
+  const handleUpdateName = async () => {
+    if (!auth.currentUser) return;
+    setIsUpdatingProfile(true);
+    try {
+      await updateProfile(auth.currentUser, {
+        displayName: displayNameInput
+      });
+      setIsEditingName(false);
+      // Force reload to reflect displayName changes globally
+      window.location.reload();
+    } catch (error) {
+      console.error('Error updating profile name:', error);
+      setIsUpdatingProfile(false);
+    }
+  };
+
   const handleSaveAppConfig = (e: React.FormEvent) => {
     e.preventDefault();
     onSaveSettings(localSettings);
@@ -96,13 +147,70 @@ export function ProfileSettingsModal({ isOpen, onClose, user, onLogout, onResetD
           {/* Sidebar */}
           <div className="w-full sm:w-64 border-b sm:border-b-0 sm:border-r border-slate-100 dark:border-slate-800 flex flex-col shrink-0 bg-slate-50/20 dark:bg-slate-900 overflow-y-auto">
             <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex flex-col items-center justify-center py-6">
-              <div className="w-16 h-16 rounded-full bg-blue-600 flex items-center justify-center text-white text-2xl font-bold shadow-lg mb-3">
+              <div className="relative group mb-3">
                 {user?.photoURL ? (
-                  <img src={user.photoURL} alt="User" className="w-full h-full rounded-full object-cover" />
+                  <img src={user.photoURL} alt="User" className="w-20 h-20 rounded-full object-cover border-2 border-white dark:border-slate-800 shadow-md" />
                 ) : (
-                  (user?.displayName?.[0] || user?.email?.[0] || 'U').toUpperCase()
+                  <div className="w-20 h-20 rounded-full bg-blue-600 flex items-center justify-center text-white text-3xl font-bold shadow-md">
+                    {(user?.displayName?.[0] || user?.email?.[0] || 'U').toUpperCase()}
+                  </div>
                 )}
+                <button 
+                  onClick={() => setShowAvatarSelect(!showAvatarSelect)}
+                  className="absolute bottom-0 right-0 p-1.5 bg-blue-600 text-white rounded-full shadow border-2 border-white dark:border-slate-900 hover:bg-blue-700 transition z-10"
+                  title="Ubah Foto Profil"
+                >
+                  <Edit3 className="w-3 h-3" />
+                </button>
               </div>
+
+              <AnimatePresence>
+                {showAvatarSelect && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="w-full overflow-hidden mb-4"
+                  >
+                    <div className="p-3 border flex flex-col gap-3 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl shadow-sm relative z-20">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1 flex items-center gap-1.5">
+                        <ImageIcon className="w-3 h-3" /> Template Avatar
+                      </div>
+                      <div className="flex flex-wrap gap-2 justify-center">
+                        {AVATAR_TEMPLATES.map((url, i) => (
+                          <button
+                            key={i}
+                            onClick={() => handleUpdateAvatar(url)}
+                            disabled={isUpdatingProfile}
+                            className={`relative rounded-full hover:scale-110 transition shrink-0 ${user?.photoURL === url ? 'ring-2 ring-blue-500 ring-offset-1 dark:ring-offset-slate-800' : ''}`}
+                          >
+                            <img src={url} alt={`Avatar ${i+1}`} className="w-8 h-8 bg-slate-100 dark:bg-slate-700 rounded-full" />
+                          </button>
+                        ))}
+                      </div>
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mt-2 mb-1">
+                        URL Custom
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <input
+                          type="url"
+                          value={customAvatarUrl}
+                          onChange={(e) => setCustomAvatarUrl(e.target.value)}
+                          placeholder="https://..."
+                          className="w-full px-2 py-1.5 rounded-lg text-xs border dark:border-slate-600 bg-slate-50 dark:bg-slate-900"
+                        />
+                        <button
+                          onClick={() => handleUpdateAvatar(customAvatarUrl)}
+                          disabled={!customAvatarUrl || isUpdatingProfile}
+                          className="w-full py-1.5 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50 transition"
+                        >
+                          Terapkan
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
               <div className="text-center">
                 <p className="font-bold text-slate-900 dark:text-white truncate max-w-[150px]">
                   {user?.displayName || "Pengguna"}
@@ -148,10 +256,58 @@ export function ProfileSettingsModal({ isOpen, onClose, user, onLogout, onResetD
           {/* Content Area */}
           <div className="flex-1 overflow-y-auto p-6 bg-white dark:bg-slate-900">
             {activeTab === 'profile' && (
-              <div className="space-y-6">
+              <div className="space-y-8">
                 <div>
                   <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Informasi Akun</h3>
                   <div className="space-y-4">
+                    <div className="flex items-center gap-4 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20">
+                      <div className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600">
+                        <UserIcon className="w-5 h-5" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Nama Tampilan</p>
+                        {isEditingName ? (
+                          <div className="flex gap-2 w-full mt-1">
+                            <input
+                              type="text"
+                              value={displayNameInput}
+                              onChange={(e) => setDisplayNameInput(e.target.value)}
+                              className="flex-1 px-3 py-1.5 text-sm border dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900"
+                              placeholder="Masukkan nama"
+                              autoFocus
+                            />
+                            <button
+                              onClick={handleUpdateName}
+                              disabled={isUpdatingProfile}
+                              className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50"
+                            >
+                              Simpan
+                            </button>
+                            <button
+                              onClick={() => {
+                                setIsEditingName(false);
+                                setDisplayNameInput(user?.displayName || '');
+                              }}
+                              className="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-sm hover:bg-slate-300 dark:hover:bg-slate-600"
+                            >
+                              Batal
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-between w-full">
+                            <p className="font-medium text-slate-900 dark:text-white">
+                              {user?.displayName || 'Belum diatur'}
+                            </p>
+                            <button
+                              onClick={() => setIsEditingName(true)}
+                              className="text-blue-600 text-sm font-medium hover:underline"
+                            >
+                              Edit
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                     <div className="flex items-center gap-4 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20">
                       <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600">
                         <Mail className="w-5 h-5" />

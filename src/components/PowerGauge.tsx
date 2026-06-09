@@ -40,10 +40,12 @@ export function PowerGauge({ monitoring, settings }: Props) {
     StatusIcon = AlertTriangle;
   }
 
+  const isWarningStatus = percentage > 90;
+
   return (
-    <Card className="w-full mb-6 relative overflow-hidden border-slate-200 dark:border-slate-800">
-      {percentage >= 100 && (
-        <div className="absolute inset-0 bg-red-500/10 dark:bg-red-500/5 animate-pulse pointer-events-none" />
+    <Card className={`w-full mb-6 relative overflow-hidden transition-all duration-500 ${isWarningStatus ? (percentage >= 100 ? 'border-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.2)]' : 'border-amber-500/50 shadow-[0_0_15px_rgba(245,158,11,0.2)]') : 'border-slate-200 dark:border-slate-800'}`}>
+      {isWarningStatus && (
+        <div className={`absolute inset-0 pointer-events-none animate-pulse ${percentage >= 100 ? 'bg-red-500/10 dark:bg-red-500/5' : 'bg-amber-500/10 dark:bg-amber-500/5'}`} />
       )}
       <CardContent className="pt-6 pb-6 flex flex-col items-center">
         <div className="flex w-full items-center justify-between mb-4">
